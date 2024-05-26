@@ -1,12 +1,13 @@
 import json
 from google.cloud import aiplatform
 import pandas as pd
+import os
 
 
 # Define the project, location, and endpoint ID
-project_id = "opencreator-1699308232742"
-project_number = "1036389498447"
-location = "europe-west6"
+project_id = os.environ.get("PROJECT_ID")
+project_number = os.environ.get("PROJECT_NUMBER")
+location = os.environ.get("REGION")
 endpoint_id = "1986360114554077184"
 
 # Authenticate the client
