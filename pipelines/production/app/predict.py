@@ -1,6 +1,8 @@
 from typing import List
 import joblib
 from dataclasses import dataclass
+import pandas as pd
+from typing import Union
 
 
 @dataclass
@@ -37,7 +39,7 @@ class ModelPipeline:
 
     def processing(self, data, index=index):
         """Preprocess data"""
-        if index:
+        if index and isinstance(data, Union[pd.DataFrame, pd.Series]):
             data = data.set_index(index)
         return data
 

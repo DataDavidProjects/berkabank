@@ -11,6 +11,7 @@ setup(
         "google-cloud-storage==2.16.0",
         "google-cloud-artifact-registry==1.11.3",
         "google-cloud-pipeline-components==2.14.0",
+        "google-cloud-logging==3.10.0",
         "kfp==2.7.0",
         # Miscellaneous
         "pandas==2.2.2",

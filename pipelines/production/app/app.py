@@ -6,32 +6,42 @@ from predict import ModelPipeline
 from google.cloud import storage
 import joblib
 from dotenv import load_dotenv, find_dotenv
+import time
+from loguru import logger
+
+
+# Start Flask Server
+app = Flask(__name__)
+AIP_HEALTH_ROUTE = os.environ.get("AIP_HEALTH_ROUTE", "/health")
+AIP_PREDICT_ROUTE = os.environ.get("AIP_PREDICT_ROUTE", "/predict")
 
 
 # Load ENV
 load_dotenv(find_dotenv())
-
+print("ENV loaded.")
 # Define the details component
 PROJECT_ID = os.environ.get("PROJECT_ID")
 REGION = os.environ.get("REGION")
 BUCKET_NAME = os.environ.get("BUCKET_NAME")
 MODEL_NAME = "berkamodel"
 PIPELINE_NAME = "production"
+INDEX = "account_id"
 
 # Download model from cloud storage
-source_blob_name = f"{PIPELINE_NAME}/artifacts/model/{MODEL_NAME}.joblib"
-destination_file_name = "app/model/model.joblib"
-storage_client = storage.Client()
-bucket = storage_client.bucket(BUCKET_NAME)
-blob = bucket.blob(source_blob_name)
-blob.download_to_filename(destination_file_name)
-
-print("Model downloaded from Cloud Storage.")
-
-# Start Flask Server
-app = Flask(__name__)
-AIP_HEALTH_ROUTE = os.environ.get("AIP_HEALTH_ROUTE", "/health")
-AIP_PREDICT_ROUTE = os.environ.get("AIP_PREDICT_ROUTE", "/predict")
+DESTINATION_FILE_NAME = f"./app/model/model.joblib"
+SOURCE_BLOB_NAME = f"{PIPELINE_NAME}/artifacts/model/{MODEL_NAME}.joblib"
+try:
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(BUCKET_NAME)
+    blob = bucket.blob(SOURCE_BLOB_NAME)
+    blob.download_to_filename(DESTINATION_FILE_NAME)
+    logger.info("Model downloaded from Cloud Storage.")
+    joblib.load(DESTINATION_FILE_NAME)
+    logger.info("Model loaded from Cloud Storage.")
+except Exception as e:
+    logger.error("Error downloading model from Cloud Storage: %s", e)
+# Wait for the model to load
+time.sleep(1.5)
 
 
 @app.route("/health")
@@ -58,7 +68,7 @@ def predict():
         response: prediction response
     """
 
-    predictor = ModelPipeline()
+    predictor = ModelPipeline(model_path=DESTINATION_FILE_NAME, index=INDEX)
 
     features_names = predictor.model.feature_names_in_.tolist()
     instances = request.get_json()["instances"]
@@ -75,10 +85,4 @@ def predict():
 
 
 if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-    )
-
-
-if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0", debug=True, port=8080)

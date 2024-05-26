@@ -171,9 +171,9 @@ env.sh
 .vscode
 
 # Compiled pipelines
-**/*pipeline.json
+**/pipeline.json
 **/registry/**.json
 **/site/** 
-
 **.csv
 service-account.json
+pipelines/**/components/**.yaml
