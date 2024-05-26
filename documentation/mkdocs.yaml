@@ -1,0 +1,6 @@
+site_name: Vertex AI E2E Pipelines
+
+nav:
+  - Home: index.md
+  - Pipeline: pipeline/index.md
+  - Concepts: concepts/index.md
