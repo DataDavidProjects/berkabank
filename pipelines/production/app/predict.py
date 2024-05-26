@@ -24,6 +24,7 @@ class ModelPipeline:
     """
 
     model_path: str = "./model/model.joblib"
+    index: str = None
 
     def load_model(self):
         """Load model from disk"""
@@ -34,8 +35,10 @@ class ModelPipeline:
     def __post_init__(self):
         self.model = self.load_model()
 
-    def processing(self, data):
+    def processing(self, data, index=index):
         """Preprocess data"""
+        if index:
+            data = data.set_index(index)
         return data
 
     def inference(self, data):
