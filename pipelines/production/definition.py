@@ -50,7 +50,7 @@ params = {
     "min_samples_split": [2, 5, 10],
 }
 SCORING = "roc_auc"
-PROMOTION_PERFORMANCE = 0.3  # TODO Change to real value
+PROMOTION_PERFORMANCE = 0.3  # TODO Change to real value:0.8
 MACHINE_TYPE = "n1-standard-2"
 
 eod_balance_component_args = {
