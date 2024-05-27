@@ -2,7 +2,7 @@ import os
 from flask import Flask, jsonify, request, json
 from google.auth import default, exceptions
 import pandas as pd
-from predict import ModelPipeline
+from predict import ModelPipeline, ModelLoader, ValidationCheck
 from google.cloud import storage
 import joblib
 from dotenv import load_dotenv, find_dotenv
@@ -28,20 +28,17 @@ PIPELINE_NAME = "production"
 INDEX = "account_id"
 
 # Download model from cloud storage
-DESTINATION_FILE_NAME = f"./app/model/model.joblib"
+DESTINATION_FILE_NAME = "./app/model/model.joblib"
 SOURCE_BLOB_NAME = f"{PIPELINE_NAME}/artifacts/model/{MODEL_NAME}.joblib"
-try:
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(BUCKET_NAME)
-    blob = bucket.blob(SOURCE_BLOB_NAME)
-    blob.download_to_filename(DESTINATION_FILE_NAME)
-    logger.info("Model downloaded from Cloud Storage.")
-    joblib.load(DESTINATION_FILE_NAME)
-    logger.info("Model loaded from Cloud Storage.")
-except Exception as e:
-    logger.error("Error downloading model from Cloud Storage: %s", e)
-# Wait for the model to load
-time.sleep(0.1)
+# Initialize ModelLoader with the necessary parameters
+model_loader = ModelLoader(
+    pipeline_name=PIPELINE_NAME, model_name=MODEL_NAME, bucket_name=BUCKET_NAME
+)
+
+# Download model
+model_loader.download_model()
+
+# Validate model
 
 
 @app.route("/health")
@@ -73,13 +70,19 @@ def predict():
     instances = request.get_json()["instances"]
     logger.info("Instances received.")
 
+    # Validate instances
+    validator = ValidationCheck(instances=instances, model_path=DESTINATION_FILE_NAME)
+    instances = validator.validate_instances()
+    logger.info("Instances validated.")
+
+    # Handle input cases
     try:
         features_names = predictor.model.feature_names_in_.tolist()
         data = pd.DataFrame(instances)[features_names]
     except KeyError:
         data = instances
-
     logger.info("Data prepared.")
+
     results = predictor.predict(data=data)
     logger.info("Prediction done.")
 
