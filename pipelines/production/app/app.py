@@ -41,7 +41,7 @@ try:
 except Exception as e:
     logger.error("Error downloading model from Cloud Storage: %s", e)
 # Wait for the model to load
-time.sleep(1.5)
+time.sleep(0.1)
 
 
 @app.route("/health")
@@ -67,13 +67,21 @@ def predict():
     Returns:
         response: prediction response
     """
-
+    logger.info("Request received.")
     predictor = ModelPipeline(model_path=DESTINATION_FILE_NAME, index=INDEX)
-
-    features_names = predictor.model.feature_names_in_.tolist()
+    logger.info("Model loaded.")
     instances = request.get_json()["instances"]
-    data = pd.DataFrame(instances)[features_names]
+    logger.info("Instances received.")
+
+    try:
+        features_names = predictor.model.feature_names_in_.tolist()
+        data = pd.DataFrame(instances)[features_names]
+    except KeyError:
+        data = instances
+
+    logger.info("Data prepared.")
     results = predictor.predict(data=data)
+    logger.info("Prediction done.")
 
     # Format Vertex AI prediction response
     predictions = [
