@@ -84,6 +84,7 @@ class CloudStorageConfig:
             "data/07_output",
             "data/08_reporting",
             "artifacts/model",
+            "artifacts/pipeline",
             "artifacts/transformer",
         ]
         for subdirectory in subdirectories:

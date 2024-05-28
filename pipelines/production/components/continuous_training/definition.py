@@ -41,7 +41,7 @@ def training_trigger_component(
             # If performance is below the threshold, trigger the training
             training_trigger = True
     # If model is not in the report, trigger the training
-    except FileNotFoundError:
+    except FileNotFoundError or ValueError:
         training_trigger = True
 
     return (str(training_trigger),)

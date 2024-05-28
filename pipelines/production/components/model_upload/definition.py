@@ -88,9 +88,12 @@ def modelregistry_component(
     # If endpoint exists take most recent otherwise create endpoint
     if len(endpoints) > 0:
         # UnDeploy Old Model
-        endpoint = endpoints[0]  # most recently created
-        deployed_model_id = endpoint.gca_resource.deployed_models[0].id
-        endpoint.undeploy(deployed_model_id)
+        endpoint = endpoints[0]
+        try:
+            deployed_model_id = endpoint.gca_resource.deployed_models[0].id
+            endpoint.undeploy(deployed_model_id)
+        except IndexError:
+            print("No deployed model found")
 
     else:
         # Create Endpoint
