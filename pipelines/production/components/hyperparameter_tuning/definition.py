@@ -54,6 +54,7 @@ def hyperparameter_tuning_component(
     import numpy as np
     from google.cloud import storage
     import joblib
+    from datetime import datetime
 
     # Load the data
     data = {
@@ -118,6 +119,29 @@ def hyperparameter_tuning_component(
     # Upload the local file to the cloud storage
     with open(f"{model_name}.joblib", "rb") as model_file:
         blob.upload_from_file(model_file)
+
+    # Create Model Performance Report
+    model_record = pd.DataFrame(
+        [
+            {
+                "model_name": model_name,
+                "roc_auc_validation": roc_auc_val,
+                "optimal_threshold": optimal_threshold,
+                "time_of_training": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        ]
+    )
+    # Update the model report
+    try:
+        model_report = pd.read_csv(f"{input_bucket_path}08_reporting/model_report.csv")
+        # Append the new record
+        pd.concat([model_report, model_record], axis=0, ignore_index=True).sort_values(
+            "time_of_training"
+        ).to_csv(f"{input_bucket_path}08_reporting/model_report.csv")
+
+    # Check if the model is already in the report
+    except FileNotFoundError:
+        model_record.to_csv(f"{input_bucket_path}08_reporting/model_report.csv")
 
     # MetaData
     hpt_grid_output.metadata["model_name"] = model_name

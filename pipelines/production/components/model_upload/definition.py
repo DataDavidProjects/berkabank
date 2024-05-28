@@ -44,18 +44,37 @@ def modelregistry_component(
     # Init VertexAI
     vertex_ai.init(project=project_id, location=region)
 
-    # Upload Model Registry
-    upload_config = vertex_ai.Model.upload(
-        display_name=model_name,
-        is_default_version=is_default_version,
-        version_aliases=version_aliases,
-        version_description=version_description,
-        serving_container_image_uri=serving_naive_runtime_container_image,
-        serving_container_health_route=serving_container_health_route,
-        serving_container_predict_route=serving_container_predict_route,
-        serving_container_ports=[serving_container_ports],
-        labels=labels,
-    )
+    # Define common parameters
+    common_params = {
+        "serving_container_image_uri": serving_naive_runtime_container_image,
+        "serving_container_health_route": serving_container_health_route,
+        "serving_container_predict_route": serving_container_predict_route,
+        "serving_container_ports": [serving_container_ports],
+        "labels": labels,
+    }
+
+    # Check if the model already exists
+    models = vertex_ai.Model.list(filter=f"display_name={model_name}")
+    if models:
+        parent_model = models[0].resource_name
+        # If the model exists, upload a new version
+        upload_config = vertex_ai.Model.upload(
+            parent_model=parent_model,
+            display_name=model_name,
+            is_default_version=is_default_version,
+            version_aliases=version_aliases,
+            version_description=version_description,
+            **common_params,
+        )
+    else:
+        # Upload Model Registry
+        upload_config = vertex_ai.Model.upload(
+            display_name=model_name,
+            is_default_version=is_default_version,
+            version_aliases=version_aliases,
+            version_description=version_description,
+            **common_params,
+        )
 
     # Create Endpoint
     model_endpoint = f"{model_name}_endpoint"
@@ -68,7 +87,11 @@ def modelregistry_component(
     )
     # If endpoint exists take most recent otherwise create endpoint
     if len(endpoints) > 0:
+        # UnDeploy Old Model
         endpoint = endpoints[0]  # most recently created
+        deployed_model_id = endpoint.gca_resource.deployed_models[0].id
+        endpoint.undeploy(deployed_model_id)
+
     else:
         # Create Endpoint
         endpoint = vertex_ai.Endpoint.create(

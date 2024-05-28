@@ -4,6 +4,8 @@ from google.cloud import storage
 import os
 import pickle
 from kfp import dsl
+import json
+from typing import Dict, Any
 
 
 @dataclasses.dataclass
@@ -42,3 +44,9 @@ class DataLoader:
     def save_pickle(artifact: dsl.Artifact, data: pd.DataFrame) -> None:
         with open(artifact.path, "wb") as file:
             pickle.dump(data, file)
+
+    def load_json_from_bucket(self, bucket_name: str, file_name: str) -> Dict[str, Any]:
+        bucket = self.storage_client.bucket(bucket_name)
+        blob = bucket.blob(file_name)
+        json_data = json.loads(blob.download_as_string())
+        return json_data

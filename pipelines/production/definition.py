@@ -14,7 +14,7 @@ from components.feature_engineering.definition import feature_engineering_compon
 from components.feature_selection.definition import feature_selection_component
 from components.hyperparameter_tuning.definition import hyperparameter_tuning_component
 from components.model_upload.definition import modelregistry_component
-
+from components.continuous_training.definition import training_trigger_component
 import datetime
 
 
@@ -23,6 +23,7 @@ aiplatform_client = vertex_authenticate()
 PROJECT_ID = os.environ.get("PROJECT_ID")
 REGION = os.environ.get("REGION")
 REPOSITORY = os.environ.get("BUCKET_NAME")  # Match the Bucket name on Artifact Registry
+BUCKET_NAME = os.environ.get("BUCKET_NAME")
 # Define the pipeline name
 PIPELINE_NAME = Path(__file__).resolve().parents[0].name
 
@@ -289,6 +290,12 @@ batch_prediction_component_args = {
     "max_replica_count": 1,
     "sync": True,
 }
+
+
+training_trigger_component_args = {
+    "input_bucket_path": f"gs://{BUCKET_NAME}/{PIPELINE_NAME}/data/",
+    "trigger_performance": PROMOTION_PERFORMANCE,
+}
 # --------------------------------------------------------
 
 
@@ -311,86 +318,99 @@ def pipeline():
 
     # TODO: implement decision component to kick training if performance is under threshold
     # If EndPoint Model exists, check performance
-    # If performance is under threshold, kick training
+    # If trigger is True, then train model
     # Else fetch model and score
-
-    # Create incidents
-    create_incidents_task = incidents_component(
-        **incidents_component_args,
-        eod_balance_preprocessed=preprocess_eod_balance_task.outputs[
-            "eod_balance_preprocessed_output"
-        ],
+    training_trigger_task = training_trigger_component(
+        **training_trigger_component_args
     )
 
-    # Compute Aggregation for training - Fair EOD Balance Period
-    aggregation_eod_balance_task = eod_balance_aggregation_component(
-        **aggregation_eod_balance_component_args,
-        eod_balance_preprocessed=preprocess_eod_balance_task.outputs[
-            "eod_balance_preprocessed_output"
-        ],
+    # If trigger is True, then train model - set True as string
+    trigger_training_condition = (
+        training_trigger_task.outputs["trigger"] == "True"  # pylint: disable=no-member
     )
 
-    # Create EODB Training
-    core_fair_eod_balance_training_task = core_fair_eod_balance_training_component(
-        **eod_balance_training_args,
-        eod_balance_aggregation=aggregation_eod_balance_task.outputs[
-            "eod_balance_aggregation_output"
-        ],
-    )
-
-    # Features Training
-    features_engineering_task = feature_engineering_component(
-        **features_enigneering_component_args,
-        eod_balance_training=core_fair_eod_balance_training_task.outputs[
-            "eod_balance_training_output"
-        ],
-        incidents=create_incidents_task.outputs["incidents_output"],
-    )
-
-    # Feature Selection
-    feature_selection_task = feature_selection_component(
-        **feature_selection_component_args,
-        training_features_input=features_engineering_task.outputs[
-            "training_features_output"
-        ],
-        core_training_input=core_fair_eod_balance_training_task.outputs[
-            "core_training_output"
-        ],
-    )
-
-    # Hyperparameter Tuning
-    hyperparameter_tuning_task = hyperparameter_tuning_component(
-        **hyperparameter_tuning_component_args,
-        drivers_input=feature_selection_task.outputs["drivers_output"],
-        training_drivers_input=feature_selection_task.outputs[
-            "training_drivers_output"
-        ],
-        core_training_input=core_fair_eod_balance_training_task.outputs[
-            "core_training_output"
-        ],
-    )
-
-    # Condition Component: If model performance is over PROMOTION_PERFORMANCE trigger component:
-    condition_deployment = (
-        hyperparameter_tuning_task.outputs[  # pylint: disable=no-member
-            "auc_validation"
-        ]
-        >= PROMOTION_PERFORMANCE
-    )
     with dsl.If(
-        name="Model Deployment Check",
-        # TODO: component return validation auc but should use better approach
-        condition=condition_deployment,
+        name="Trigger Training Check",
+        condition=trigger_training_condition,
     ):
 
-        # Model Upload -
-        # https://google-cloud-pipeline-components.readthedocs.io/en/google-cloud-pipeline-components-2.14.1/api/v1/model.html#v1.model.ModelUploadOp
-        model_upload_task = modelregistry_component(
-            **model_registry_component_args,
-            best_model_input=hyperparameter_tuning_task.outputs[  # pylint: disable=no-member
-                "best_model_output"
+        # Create incidents
+        create_incidents_task = incidents_component(
+            **incidents_component_args,
+            eod_balance_preprocessed=preprocess_eod_balance_task.outputs[
+                "eod_balance_preprocessed_output"
             ],
         )
+
+        # Compute Aggregation for training - Fair EOD Balance Period
+        aggregation_eod_balance_task = eod_balance_aggregation_component(
+            **aggregation_eod_balance_component_args,
+            eod_balance_preprocessed=preprocess_eod_balance_task.outputs[
+                "eod_balance_preprocessed_output"
+            ],
+        )
+
+        # Create EODB Training
+        core_fair_eod_balance_training_task = core_fair_eod_balance_training_component(
+            **eod_balance_training_args,
+            eod_balance_aggregation=aggregation_eod_balance_task.outputs[
+                "eod_balance_aggregation_output"
+            ],
+        )
+
+        # Features Training
+        features_engineering_task = feature_engineering_component(
+            **features_enigneering_component_args,
+            eod_balance_training=core_fair_eod_balance_training_task.outputs[
+                "eod_balance_training_output"
+            ],
+            incidents=create_incidents_task.outputs["incidents_output"],
+        )
+
+        # Feature Selection
+        feature_selection_task = feature_selection_component(
+            **feature_selection_component_args,
+            training_features_input=features_engineering_task.outputs[
+                "training_features_output"
+            ],
+            core_training_input=core_fair_eod_balance_training_task.outputs[
+                "core_training_output"
+            ],
+        )
+
+        # Hyperparameter Tuning
+        hyperparameter_tuning_task = hyperparameter_tuning_component(
+            **hyperparameter_tuning_component_args,
+            drivers_input=feature_selection_task.outputs["drivers_output"],
+            training_drivers_input=feature_selection_task.outputs[
+                "training_drivers_output"
+            ],
+            core_training_input=core_fair_eod_balance_training_task.outputs[
+                "core_training_output"
+            ],
+        )
+
+        # Condition Component: If model performance is over PROMOTION_PERFORMANCE trigger component:
+        condition_deployment = (
+            hyperparameter_tuning_task.outputs[  # pylint: disable=no-member
+                "auc_validation"
+            ]
+            >= PROMOTION_PERFORMANCE
+        )
+        with dsl.If(
+            name="Model Deployment Check",
+            # TODO: component return validation auc but should use better approach
+            condition=condition_deployment,
+        ):
+
+            # Model Upload -
+            # https://google-cloud-pipeline-components.readthedocs.io/en/google-cloud-pipeline-components-2.14.1/api/v1/model.html#v1.model.ModelUploadOp
+            model_upload_task = modelregistry_component(
+                **model_registry_component_args,
+                best_model_input=hyperparameter_tuning_task.outputs[  # pylint: disable=no-member
+                    "best_model_output"
+                ],
+            )
 
     # Create Drivers
     # create_drivers_task = None
@@ -400,7 +420,8 @@ def pipeline():
 
     # Set dependencies sequence
     preprocess_eod_balance_task.after(create_eod_balance_task)
-    aggregation_eod_balance_task.after(preprocess_eod_balance_task)
+    training_trigger_task.after(preprocess_eod_balance_task)
+    aggregation_eod_balance_task.after(training_trigger_task)
     create_incidents_task.after(preprocess_eod_balance_task)
     feature_selection_task.after(features_engineering_task)
     hyperparameter_tuning_task.after(  # pylint: disable=no-member
