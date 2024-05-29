@@ -8,6 +8,14 @@ Instead of having one specific goal, this project showcases the integration of a
   <img src="https://cloud.google.com/images/social-icon-google-cloud-1200-630.png" width="300">
 </p>
 
+## Requirements:
+
+- [google cloud account](https://cloud.google.com/?hl=en)
+- [gcloud cli](https://cloud.google.com/sdk/docs/install)
+- [service account](https://cloud.google.com/iam/docs/service-account-overview)
+- [docker desktop](https://docs.docker.com/desktop/install/windows-install/)
+- [cloud code in vscode](https://cloud.google.com/code/docs/vscode/install)
+
 ## 📚 Berka Dataset
 
 In the original competition of 99', the data about the clients and their accounts consisted of following relations:
