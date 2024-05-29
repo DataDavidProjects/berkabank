@@ -55,4 +55,4 @@ The steps are:
 
 ### Case 3: Mail Funnel. - Coming Soon! 📬
 
-To promote customer interaction, at the end of each month we will schedule a mail to thank our customer for their choice and use AI to craft a little report on their spending with personalized product suggestions.
+To promote customer interaction, at the end of each month we will schedule a mail to thank our customer for their choice and use LanguageModels to craft a little report on their spending with personalized product suggestions.
