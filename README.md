@@ -39,7 +39,7 @@ Each case follows a specific architecture made using [Google Architecture Diagra
 
 ### Case 1: Moving fast from MVP to MLOps
 
-The idea is to make the average Data Scientists able deliver features without using too much time and complex frameworks. Fancy IAC and MLOps tools are cool, but not everyone wants to use them. In the documentation, you will find my personal method to switch fast from Data Scientist to ML engineer.
+The idea is to make the average Data Scientists able deliver features without using too much time and complex frameworks. Fancy IAC and MLOps tools are cool, but not everyone wants to use them. In the documentation, you will find my personal method to switch fast from Data Scientist to ML Engineer.
 
 ### Case 2: Risk Assessment for Primary Accounts - In progress...
 
