@@ -10,6 +10,14 @@ The limitations:
 
 - LazyPipelines are not for all the usecases, it supposed to be a mid point between AutoML and Custom Code for supervised learning
 
+Requirements:
+
+- [google cloud account](https://cloud.google.com/?hl=en)
+- [gcloud cli](https://cloud.google.com/sdk/docs/install)
+- [service account](https://cloud.google.com/iam/docs/service-account-overview)
+- [docker desktop](https://docs.docker.com/desktop/install/windows-install/)
+- [cloud code in vscode](https://cloud.google.com/code/docs/vscode/install)
+
 ## Naming conventions for files and directories
 
 In order to eliminate the majority of the boilerplate work, some naming convention are introduced.
