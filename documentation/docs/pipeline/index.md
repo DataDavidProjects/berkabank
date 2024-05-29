@@ -16,6 +16,7 @@ In order to eliminate the majority of the boilerplate work, some naming conventi
 Inside each folder type:
 
 1.  Pipeline
+
     There following files are mandatory:
 
     1. `definition.py`
@@ -25,7 +26,9 @@ Inside each folder type:
     5. `src`
 
 2.  Components
+
     There following files are mandatory:
+
     1. `definition.py`
 
 ## Pipelines
