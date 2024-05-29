@@ -1,5 +1,5 @@
 site_name: BerkaBank
 
 nav:
-  - MVP to MLOps: pipeline/index.md
+  - MVP to MLOps: mvp2mlops/index.md
   - Risk Assessment: risk/index.md
