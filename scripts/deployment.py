@@ -58,7 +58,6 @@ endpoints = vertex_ai.Endpoint.list(
     location=REGION,
 )
 # If endpoint exists take most recent otherwise create endpoint
-# If endpoint exists take most recent otherwise create endpoint
 print(endpoints)
 if len(endpoints) > 0:
     endpoint = endpoints[0]  # most recently created

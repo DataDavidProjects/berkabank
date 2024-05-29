@@ -1,6 +1,5 @@
-site_name: Vertex AI E2E Pipelines
+site_name: BerkaBank
 
 nav:
-  - Home: index.md
-  - Pipeline: pipeline/index.md
-  - Concepts: concepts/index.md
+  - MVP to MLOps: pipeline/index.md
+  - Risk Assessment: risk/index.md
