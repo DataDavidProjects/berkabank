@@ -4,7 +4,7 @@ from kfp import dsl
 from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
 from kfp import compiler
-
+from google.cloud import aiplatform
 
 # Load ENV
 load_dotenv(find_dotenv())
@@ -26,7 +26,7 @@ BASE_IMAGE = f"{REGION}-docker.pkg.dev/{PROJECT_ID}/{REPOSITORY}/{PIPELINE_NAME}
 )
 def batch_prediction_component(
     project_id: str,
-    location: str,
+    region: str,
     model_resource_name: str,
     job_display_name: str,
     gcs_source: str,
@@ -34,7 +34,6 @@ def batch_prediction_component(
     instances_format: str,
     machine_type: str,
     accelerator_count: int,
-    accelerator_type: str,
     starting_replica_count: int,
     max_replica_count: int,
     sync: bool,
@@ -42,18 +41,35 @@ def batch_prediction_component(
 ):
     from google.cloud import aiplatform
 
-    aiplatform.init(project=project_id, location=location)
+    aiplatform.init(project=project_id, location=region)
 
-    my_model = aiplatform.Model(model_resource_name)
+    def get_model_by_display_name(display_name, verbose=False):
+        client = aiplatform.gapic.ModelServiceClient(
+            client_options={"api_endpoint": f"{region}-aiplatform.googleapis.com"}
+        )
+        parent = f"projects/{project_id}/locations/{region}"
+        response = client.list_models(parent=parent)
 
-    batch_prediction_job = my_model.batch_predict(
+        for model in response:
+            if model.display_name == display_name:
+                if verbose:
+                    print(f"Model {display_name} found.")
+                    print(f"Model details:\n {model}")
+                return model
+        else:
+            print(f"Model {display_name} not found.")
+
+    model_id = get_model_by_display_name(model_resource_name).name
+    model_container = aiplatform.Model(model_id)
+
+    batch_prediction_job = model_container.batch_predict(
         job_display_name=job_display_name,
         gcs_source=gcs_source,
         gcs_destination_prefix=gcs_destination,
         instances_format=instances_format,
         machine_type=machine_type,
         accelerator_count=accelerator_count,
-        accelerator_type=accelerator_type,
+        accelerator_type=None,
         starting_replica_count=starting_replica_count,
         max_replica_count=max_replica_count,
         sync=sync,
@@ -70,7 +86,6 @@ def batch_prediction_component(
 
 # Compile the component
 COMPONENT_FILE = f"pipelines/{PIPELINE_NAME}/components/batch_prediction.yaml"
-print(f"Compiling {COMPONENT_FILE}")
 compiler.Compiler().compile(
     batch_prediction_component,
     COMPONENT_FILE,

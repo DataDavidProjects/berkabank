@@ -37,7 +37,8 @@ def training_trigger_component(
         # Check if the model is already in the report
         model_report = pd.read_csv(f"{input_bucket_path}08_reporting/model_report.csv")
         # Check if performance of latest model
-        if model_report.tail(1)["roc_auc_validation"] < trigger_performance:
+        last_model_performance = model_report.iloc[-1]["roc_auc_validation"]
+        if last_model_performance < trigger_performance:
             # If performance is below the threshold, trigger the training
             training_trigger = True
     # If model is not in the report, trigger the training

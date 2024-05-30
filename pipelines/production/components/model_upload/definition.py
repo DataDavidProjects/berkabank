@@ -24,7 +24,7 @@ BASE_IMAGE = f"{REGION}-docker.pkg.dev/{PROJECT_ID}/{REPOSITORY}/{PIPELINE_NAME}
 @dsl.component(
     base_image=BASE_IMAGE,
 )
-def modelregistry_component(
+def model_registry_component(
     model_name: str,
     serving_naive_runtime_container_image: str,
     is_default_version: bool,
@@ -121,6 +121,6 @@ def modelregistry_component(
 COMPONENT_FILE = f"pipelines/{PIPELINE_NAME}/components/{COMPONENT_NAME}.yaml"
 print(f"Compiling {COMPONENT_FILE}")
 compiler.Compiler().compile(
-    modelregistry_component,
+    model_registry_component,
     COMPONENT_FILE,
 )

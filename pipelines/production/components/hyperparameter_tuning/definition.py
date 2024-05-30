@@ -141,7 +141,9 @@ def hyperparameter_tuning_component(
 
     # Check if the model is already in the report
     except FileNotFoundError:
-        model_record.to_csv(f"{input_bucket_path}08_reporting/model_report.csv")
+        model_record.to_csv(
+            f"{input_bucket_path}08_reporting/model_report.csv", index=False
+        )
 
     # MetaData
     hpt_grid_output.metadata["model_name"] = model_name
