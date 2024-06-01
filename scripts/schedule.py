@@ -5,10 +5,40 @@ from google.cloud import aiplatform
 # Add the current directory to the path
 sys.path.append(".")
 
+
+# Cron schedules
+cron_dict = {
+    "every_minute": "* * * * *",
+    "every_five_minutes": "*/5 * * * *",
+    "every_ten_minutes": "*/10 * * * *",
+    "every_fifteen_minutes": "*/15 * * * *",
+    "every_half_hour": "*/30 * * * *",
+    "every_hour": "0 * * * *",
+    "every_two_hours": "0 */2 * * *",
+    "every_three_hours": "0 */3 * * *",
+    "every_six_hours": "0 */6 * * *",
+    "every_twelve_hours": "0 */12 * * *",
+    "every_day_midnight": "0 0 * * *",
+    "every_day_noon": "0 12 * * *",
+    "every_monday": "0 0 * * MON",
+    "every_tuesday": "0 0 * * TUE",
+    "every_wednesday": "0 0 * * WED",
+    "every_thursday": "0 0 * * THU",
+    "every_friday": "0 0 * * FRI",
+    "every_saturday": "0 0 * * SAT",
+    "every_sunday": "0 0 * * SUN",
+    "every_weekend": "0 0 * * SAT,SUN",
+    "every_weekday": "0 0 * * MON-FRI",
+    "every_month_first_day": "0 0 1 * *",
+    "every_month_last_day": "0 0 L * *",
+    "every_year": "0 0 1 1 *",
+}
+
+
 # Constants
 MODEL_NAME = "berkamodel"
 PIPELINE_NAME = "production"
-CRON_SCHEDULE = "* * * * *"  # Every minute
+CRON_SCHEDULE = cron_dict["every_hour"]
 MAX_CONCURRENT_RUN_COUNT = 1
 MAX_RUN_COUNT = 10
 
