@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Union
+from typing import Any, Dict, Union
 import numpy as np
 import pandas as pd
 from probatus.feature_elimination import ShapRFECV
@@ -63,3 +63,86 @@ class FeatureEliminationShap:
             standard_error_threshold=self.standard_error_threshold,
             return_type=self.return_type,
         )
+
+
+@dataclass
+class FeatureEliminationMissingRate:
+    """Feature elimination class.
+
+    Attributes:
+        missing_rate_threshold (float): missing rate threshold
+
+    Methods:
+        run(X, y): fit the model
+
+    Returns:
+        list: reduced feature set
+    """
+
+    missing_rate_threshold: float
+
+    def run(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Run the feature elimination process.
+
+        Args:
+            X (pd.DataFrame): input features
+            y (np.array): target variable
+
+        Returns:
+            list: reduced feature set
+        """
+        missing_rate = X.isnull().mean()
+        features_to_keep = missing_rate[
+            missing_rate < self.missing_rate_threshold
+        ].index
+        return X[features_to_keep]
+
+
+@dataclass
+class FeatureEliminationCoV:
+    """Feature elimination class.
+
+    Attributes:
+        cov_threshold (float): coefficient of variation threshold
+
+    Methods:
+        run(X, y): fit the model
+
+    Returns:
+        list: reduced feature set
+    """
+
+    cov_threshold: float
+
+    def run(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Run the feature elimination process.
+
+        Args:
+            X (pd.DataFrame): input features
+            y (np.array): target variable
+
+        Returns:
+            list: reduced feature set
+        """
+        cov = X.std() / X.mean()
+        features_to_keep = cov[cov < self.cov_threshold].index
+        return X[features_to_keep]
+
+
+@dataclass
+class FeatureEliminationPipeline:
+    steps: Dict[str, Any]
+
+    def run(self, X: pd.DataFrame, y: np.array) -> pd.DataFrame:
+        """Run the feature elimination process.
+
+        Args:
+            X (pd.DataFrame): input features
+            y (np.array): target variable
+
+        Returns:
+            list: reduced feature set
+        """
+        for step in self.steps:
+            X = step.run(X, y)
+        return X
