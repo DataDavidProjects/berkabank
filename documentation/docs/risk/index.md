@@ -86,9 +86,17 @@ Scheduled batch predictions are the best approach for internal stress testing.
 
 ## Feature Engineering
 
+**Aggregation of the EoDBalance KPIs at different points in time for each account.**
+
+Example:
+
+_'f_f_daily_amount_inflow\_\_rolling_mean_10_days_skew'_
+
+**Skewness of the 10-day rolling mean of the 'daily_amount_inflow' feature over the available period of time.**
+
 **Primary features**:
 
-- Sum, Avg, Count of Fair EOD Balance over periods from 3 to 30 days.
+- Sum, Avg, Count of Fair EOD Balance over periods from 10 to 90 days.
 
 **Derived features**:
 

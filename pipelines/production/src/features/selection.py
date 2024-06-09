@@ -8,6 +8,25 @@ from sklearn.model_selection import RandomizedSearchCV
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 
+def drop_missing_percentage(df, threshold=0.1):
+    """
+    Returns a list of column names from the DataFrame where less than 10% of the data is missing.
+
+    Parameters:
+    df (pandas.DataFrame): The DataFrame to process.
+
+    Returns:
+    list: A list of column names.
+    """
+    columns = (
+        (df.isna().mean() < threshold)
+        .replace({True: 1, False: np.nan})
+        .dropna()
+        .index.to_list()
+    )
+    return df.loc[:, columns]
+
+
 @dataclass
 class FeatureEliminationShap:
     """Feature elimination class.
@@ -38,6 +57,8 @@ class FeatureEliminationShap:
     standard_error_threshold: float = 0.5
     return_type: str = "feature_names"
     num_features: Union[int, str] = "best"
+    check_additivity: bool = False
+    min_features_to_select: int = 5
 
     def run(self, X: pd.DataFrame, y: np.array) -> pd.DataFrame:
         """Run the feature elimination process.
@@ -55,9 +76,14 @@ class FeatureEliminationShap:
             cv=self.cv,
             scoring=self.scoring,
             n_jobs=self.n_jobs,
+            min_features_to_select=self.min_features_to_select,
         )
 
-        grid_search = shap_elimination.fit(X, y)
+        grid_search = shap_elimination.fit(
+            X,
+            y,
+            check_additivity=self.check_additivity,
+        )
 
         return grid_search.get_reduced_features_set(
             num_features=self.num_features,
@@ -134,7 +160,7 @@ class FeatureEliminationCoV:
     """Feature elimination class.
 
     Attributes:
-        cov_threshold (float): coefficient of variation threshold
+        coeffvar_threshold (float): coefficient of variation threshold
 
     Methods:
         run(X, y): fit the model
@@ -143,7 +169,7 @@ class FeatureEliminationCoV:
         list: reduced feature set
     """
 
-    cov_threshold: float
+    coeffvar_threshold: float
 
     def run(self, X: pd.DataFrame) -> pd.DataFrame:
         """Run the feature elimination process.
@@ -155,9 +181,55 @@ class FeatureEliminationCoV:
         Returns:
             list: reduced feature set
         """
-        cov = X.std() / X.mean()
-        features_to_keep = cov[cov > self.cov_threshold].index
+        CoeffVar = X.std() / X.mean()
+        features_to_keep = CoeffVar[CoeffVar > self.coeffvar_threshold].index
         return X[features_to_keep]
+
+
+@dataclass
+class FeatureEliminationPearsonCorr:
+    """Feature elimination class based on Pearson correlation.
+
+    Attributes:
+        pearson_threshold (float): Pearson correlation threshold
+
+    Methods:
+        run(X): fit the model
+
+    Returns:
+        DataFrame: reduced feature set
+    """
+
+    pearson_threshold: float = 0.4
+
+    def run(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Run the feature elimination process.
+
+        Args:
+            X (pd.DataFrame): input features
+
+        Returns:
+            DataFrame: reduced feature set
+        """
+        # Calculate correlation matrix
+        corr_matrix = X.corr().abs()
+
+        # Select upper triangle of correlation matrix
+        upper = corr_matrix.where(
+            np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
+        )
+
+        # Find features with correlation greater than the threshold
+        to_drop = [
+            column
+            for column in upper.columns
+            if any(upper[column] > self.pearson_threshold)
+        ]
+
+        # Drop features
+        X = X.drop(X[to_drop], axis=1)
+
+        return X
 
 
 @dataclass

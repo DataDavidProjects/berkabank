@@ -23,6 +23,7 @@ setup(
         "pyarrow==16.0.0",
         "probatus==3.1.0",
         "flask==3.0.3",
+        "statsmodels==0.14.2",
         # Documentation
         "mkdocs==1.6.0",
         # Code Formatting

@@ -4,7 +4,12 @@ from typing import Dict, List, Any, Callable
 import pandas as pd
 import re
 import warnings
+import random
+import numpy as np
+from typing import Callable
 
+
+# Suppress the PerformanceWarning
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
 
@@ -123,14 +128,15 @@ class IncidentFeatures:
 @dataclass
 class EODBFeatures:
     eod_balance_training: pd.DataFrame
-    column_mapping: dict
     aggregations: List[str]
+    column_mapping: dict
+    index: str = "account_id"
 
     def run(self):
         print("----- Running EODBFeatures...")
         feature_matrix = (
             make_aggregations(self.eod_balance_training, self.aggregations)
-            .groupby(self.column_mapping.get("account_id"))[self.aggregations]
+            .groupby(self.column_mapping.get(self.index))[self.aggregations]
             .agg(
                 [
                     "sum",
@@ -145,7 +151,7 @@ class EODBFeatures:
         )
 
         feature_matrix.columns = [
-            f"f_{col[0]}_{col[1]}" for col in feature_matrix.columns.values
+            f"f_{measure}_{fun}" for measure, fun in feature_matrix.columns.values
         ]
         eodb_features_output = feature_matrix.copy()
         print("----- EODBFeatures completed.")
@@ -153,45 +159,122 @@ class EODBFeatures:
 
 
 @dataclass
-class PrimaryFeatures:
-    incident_features: IncidentFeatures
-    eodb_features: EODBFeatures
+class RatioFeatures:
+    """A class to generate ratio features from a DataFrame.
+
+    To avoid not necessary computation, the ratios are generated using a kurtosis rank.
+    The assumption is that flat curves are a blend of 2 possible distrubitions.
+    The lowest in the rank are selected and different ratio pairs are created
+
+    Attributes:
+        df: A pandas DataFrame from which to generate ratio features.
+        n: An optional integer specifying the number of pairs to select. If not specified, all pairs are used.
+
+    Returns:
+        A new DataFrame with the original data and the new ratio features.
+    """
+
+    df: pd.DataFrame
+    n: int = None
+    strategy: str = "random"
+
+    def random_strategy(self, pairs):
+        return random.sample(pairs, self.n)
+
+    def kurtosis_strategy(self, pairs):
+        ranked_columns = self.df.kurt().sort_values(ascending=True).index.tolist()
+        return [
+            (col1, col2)
+            for col1 in ranked_columns
+            for col2 in ranked_columns
+            if col1 != col2
+        ]
 
     def __post_init__(self):
-        print("--- Initializing PrimaryFeatures...")
-        self.incident_features_output = self.incident_features.run()
-        self.eodb_features_output = self.eodb_features.run()
-        print("--- PrimaryFeatures initialized.")
+        self.strategies = {
+            "random": self.random_strategy,
+            "kurtosis": self.kurtosis_strategy,
+        }
+
+    def run(self):
+        print("--- Running DerivedFeatures...")
+        # Small constant to avoid division by zero
+        eps = np.finfo(float).eps
+        # Rank columns by kurtosis
+
+        # Get all possible pairs of columns
+        pairs = [
+            (col1, col2)
+            for col1 in self.df.columns
+            for col2 in self.df.columns
+            if col1 != col2
+        ]
+
+        if self.n:
+            pairs = self.strategies[self.strategy](pairs)
+
+            # Select the first n pairs
+            pairs = pairs[: self.n]
+
+        # Iterate over the selected pairs
+        for num, den in pairs:
+            # Create new column with division result
+            self.df[f"{num}_ratio_{den}"] = self.df[num] / (self.df[den] + eps)
+
+        ratiofeatures = self.df.copy()
+        print("--- DerivedFeatures completed.")
+        return ratiofeatures
+
+
+@dataclass
+class PrimaryFeatures:
+    df: pd.DataFrame
+    steps: Dict[str, Callable]
 
     def run(self):
         print("--- Running PrimaryFeatures...")
-        primary_features_output = pd.DataFrame()
+        for step in self.steps:
+            self.df = self.steps[step].run(self.df)
+
+        primary_features_output = self.df.copy()
         print("--- PrimaryFeatures completed.")
         return primary_features_output
 
 
 @dataclass
 class DerivedFeatures:
-    primary_features: PrimaryFeatures
+    """Compute features based on the existing features.
 
-    def __post_init__(self):
-        print("--- Initializing DerivedFeatures...")
-        self.primary_features_output = self.primary_features.run()
-        print("--- DerivedFeatures initialized.")
+    Returns:
+        pd.Dataframe: Dataframe with derived features.
+    """
+
+    df: pd.DataFrame
+    steps: Dict[str, Callable]
 
     def run(self):
         print("--- Running DerivedFeatures...")
-        derived_features = pd.DataFrame()
+        for step in self.steps:
+            self.df = self.steps[step].run(self.df)
+
+        derived_features_output = self.df.copy()
         print("--- DerivedFeatures completed.")
-        return derived_features
+        return derived_features_output
 
 
 @dataclass
-class FeatureEngineering:
-    primary_features: PrimaryFeatures
-    derived_features: DerivedFeatures
+class FeatureImputer:
+    """Impute missing values in the dataframe.
+
+    Returns:
+        pd.Dataframe: Imputed dataframe.
+    """
+
+    df: pd.DataFrame
+    filler: float = -1
 
     def run(self):
-        print("Running FeatureEngineering...")
-        self.derived_features.run()
-        print("FeatureEngineering completed.")
+        print("--- Running FeatureImputer...")
+        imputed_df = self.df.fillna(self.filler)
+        print("--- FeatureImputer completed.")
+        return imputed_df
