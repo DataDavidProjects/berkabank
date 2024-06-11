@@ -215,9 +215,7 @@ class FeatureEliminationPearsonCorr:
         corr_matrix = X.corr().abs()
 
         # Select upper triangle of correlation matrix
-        upper = corr_matrix.where(
-            np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
-        )
+        upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
 
         # Find features with correlation greater than the threshold
         to_drop = [

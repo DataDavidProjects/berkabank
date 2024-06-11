@@ -75,7 +75,8 @@ class ModelEvaluationBinaryClassification:
     cutoff_score: float = 0.5
 
     def __post_init__(self):
-        self.y_pred = self.y_proba[:, 1] > self.cutoff_score
+        self.y_proba_positive = self.y_proba[:, 1]
+        self.y_pred = self.y_proba_positive > self.cutoff_score
 
     def confusion_matrix(self) -> pd.DataFrame:
         """Generate the confusion matrix.
@@ -94,8 +95,7 @@ class ModelEvaluationBinaryClassification:
             pd.Dataframe: metrics dataframe
         """
         metrics_dict = {
-            "ROC AUC Score": roc_auc_score(self.y, self.y_pred),
-            "Accuracy": accuracy_score(self.y, self.y_pred),
+            "ROC AUC Score": roc_auc_score(self.y, self.y_proba_positive),
             "Precision": precision_score(self.y, self.y_pred),
             "Recall": recall_score(self.y, self.y_pred),
             "F1 Score": f1_score(self.y, self.y_pred),
