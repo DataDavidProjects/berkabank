@@ -78,12 +78,7 @@ class RatioFeatures:
             "kurtosis": self.kurtosis_strategy,
         }
 
-    def run(self):
-        print("--- Running DerivedFeatures...")
-        # Small constant to avoid division by zero
-        eps = np.finfo(float).eps
-        # Rank columns by kurtosis
-
+    def create_pairs(self):
         # Get all possible pairs of columns
         pairs = [
             (col1, col2)
@@ -91,16 +86,21 @@ class RatioFeatures:
             for col2 in self.df.columns
             if col1 != col2
         ]
+        return pairs
 
+    def run(self):
+        print("--- Running DerivedFeatures...")
+
+        pairs = self.create_pairs()
+        # Create ratio based on the selected strategy
         if self.n:
-            pairs = self.strategies[self.strategy](pairs)
-
             # Select the first n pairs
+            pairs = self.strategies[self.strategy](pairs)
             pairs = pairs[: self.n]
 
-        # Iterate over the selected pairs
+        # Create new column with division result
+        eps = np.finfo(float).eps
         for num, den in pairs:
-            # Create new column with division result
             self.df[f"{num}_ratio_{den}"] = self.df[num] / (self.df[den] + eps)
 
         ratiofeatures = self.df.copy()
