@@ -12,6 +12,9 @@ from src.features.utils import *
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
 
+
+
+
 @dataclass
 class IncidentFeatures:
     incidents: pd.DataFrame
@@ -28,12 +31,13 @@ class IncidentFeatures:
 class EODBFeatures:
     eod_balance_training: pd.DataFrame
     column_mapping: dict
+    feature_columns: List[str]
     index: str = "account_id"
 
     def run(self):
         print("----- Running EODBFeatures...")
         feature_matrix = compute_aggregations(
-            eod_balance=self.eod_balance_training,
+            eod_balance=self.eod_balance_training, feature_columns=self.feature_columns
         )
         eodb_features_output = feature_matrix.copy()
         print("----- EODBFeatures completed.")

@@ -6,6 +6,7 @@ from sklearn.metrics import (
     f1_score,
     roc_auc_score,
     confusion_matrix,
+    classification_report,
 )
 import re
 from dataclasses import dataclass
@@ -13,42 +14,6 @@ from typing import Dict, Union, List
 from sklearn.base import BaseEstimator
 import pandas as pd
 import numpy as np
-
-
-def parse_aggregation(aggregation):
-    """Parse the name of an aggregation to get the feature, category, function, and time period.
-
-    Args:
-        aggregation (str): Name of the aggregation.
-
-    Returns:
-        tuple: feature, category, function, time period.
-    """
-    match = re.match(r"f_(\w+)__rolling_(\w+)_(\d+)_days", aggregation)
-    feature, func, time_period = match.groups()
-    time_period = int(time_period)
-
-    return feature, func, time_period
-
-
-def parse_aggregation_extended(aggregations) -> List[str]:
-    extended_aggregations = []
-    for aggregation in aggregations:
-        if "ratio" in aggregation:
-            extended_aggregations += aggregation.split("_ratio_")
-            aggregations.remove(aggregation)
-        else:
-            extended_aggregations.append(aggregation)
-    return extended_aggregations
-
-
-def report_drivers(aggregations) -> pd.DataFrame:
-    extended_agg = parse_aggregation_extended(aggregations)
-    parsed_aggregations = [parse_aggregation(agg) for agg in extended_agg]
-    return pd.DataFrame(
-        parsed_aggregations,
-        columns=["Base Feature", "Aggregation Function", "Time Period - Days"],
-    )
 
 
 @dataclass
@@ -102,10 +67,16 @@ class ModelEvaluationBinaryClassification:
             "F0.5 Score": fbeta_score(self.y, self.y_pred, beta=0.5),
             "F2 Score": fbeta_score(self.y, self.y_pred, beta=2),
         }
+        try:
+            index_metric_df = [self.model.__class__.__name__]
+        except:
+            index_metric_df = ["Model"]
 
-        metrics_df = pd.DataFrame(metrics_dict, index=[0])
+        metrics_df = pd.DataFrame(metrics_dict, index=index_metric_df)
 
-        return metrics_df.rename_axis("Model", axis=0)
+        return metrics_df.rename_axis("Model", axis=0), classification_report(
+            self.y, self.y_pred
+        )
 
     def run(self) -> None:
         """Run the model evaluation process.
@@ -114,5 +85,6 @@ class ModelEvaluationBinaryClassification:
             None
         """
         cm = self.confusion_matrix()
-        print("Confusion Matrix:\n", cm)
-        return self.report()
+        metrics_df, classification_report = self.report()
+
+        return cm, metrics_df, classification_report

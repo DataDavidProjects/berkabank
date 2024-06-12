@@ -16,6 +16,7 @@ setup(
         # Miscellaneous
         "pandas==2.2.2",
         "scikit-learn==1.4.2",
+        "imbalanced-learn-0.12.3",
         "numpy==1.26.4",
         "joblib==1.4.0",
         "pyyaml==6.0.1",

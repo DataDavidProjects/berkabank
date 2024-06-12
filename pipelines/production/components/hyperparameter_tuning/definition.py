@@ -73,7 +73,7 @@ def hyperparameter_tuning_component(
     y = data["core_training"].set_index("account_id")["target"]
 
     # Balance cv and validation folds
-    split = StratifiedShuffleSplit(n_splits=1, test_size=0.1, random_state=42)
+    split = StratifiedShuffleSplit(n_splits=1, test_size=0.05, random_state=42)
 
     for train_index, test_index in split.split(X, y):
         X_train, X_test = X.iloc[train_index], X.iloc[test_index]

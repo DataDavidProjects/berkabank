@@ -36,12 +36,19 @@ def feature_engineering_component(
     training_features_output: dsl.Output[dsl.Dataset],
 ):
     from src.features.engineering import (
-        FeatureEngineering,
-        IncidentFeatures,
         EODBFeatures,
-        PrimaryFeatures,
-        DerivedFeatures,
+        RatioFeatures,
     )
+    from src.features.selection import (
+        FeatureEliminationCoV,
+        FeatureEliminationKurtosis,
+        FeatureEliminationMissingRate,
+        FeatureEliminationPearsonCorr,
+        FeatureEliminationPipeline,
+        FeatureEliminationVIF,
+    )
+    from src.features.imputer import FeatureImputer
+
     import pandas as pd
 
     # Load the data
@@ -57,30 +64,56 @@ def feature_engineering_component(
         ),
     }
 
-    # Configure each class with specific parameters
-    incident_features = IncidentFeatures(data["incidents"], column_mapping["incidents"])
-    eodb_features = EODBFeatures(
-        data["eod_balance_training"],
-        column_mapping["eod_balance_training"],
-        aggregations=aggregations,
-    )
-    primary_features = PrimaryFeatures(
-        incident_features,
-        eodb_features,
-    )
-    derived_features = DerivedFeatures(primary_features)
+    # EOD Balance Feature Engineering
+    eod_balance_training = data["eod_balance_training"].copy()
 
-    # Run the FeatureEngineering pipeline
-    feature_engineering = FeatureEngineering(primary_features, derived_features)
-    training_features = feature_engineering.run()
-
-    # TODO: replace with FE logic
-    training_features = (
-        data["eod_balance_training"]
-        .loc[:, ["account_id", "n_transactions", "days_since_account_creation"]]
-        .groupby("account_id")
-        .sum()
+    eod_balance_training["flow_category"] = (
+        eod_balance_training["daily_amount_flow"]
+        .gt(0)
+        .replace({True: "inflow", False: "outflow"})
     )
+
+    eod_balance_training["daily_amount_inflow"] = eod_balance_training[
+        "daily_amount_flow"
+    ].clip(lower=0)
+
+    eod_balance_training["daily_amount_outflow"] = (
+        eod_balance_training["daily_amount_flow"].clip(upper=0).abs()
+    )
+
+    index = ["account_id"]
+    FEATURE_BASED = [
+        "daily_amount_inflow",
+        "daily_amount_outflow",
+        "end_of_day_balance",
+    ]
+
+    features_selected = eod_balance_training.loc[:, index + FEATURE_BASED]
+    eod_feature_matrix = EODBFeatures(
+        eod_balance_training=features_selected,
+        column_mapping=column_mapping["eod_balance_training"],
+        feature_columns=FEATURE_BASED,
+    ).run()
+
+    eod_feature_matrix = RatioFeatures(
+        df=eod_feature_matrix, n=1000, strategy="kurtosis"
+    ).run()
+
+    # Statistical Feature Selection
+    feature_elimination_pipeline = FeatureEliminationPipeline(
+        {
+            "missing_rate": FeatureEliminationMissingRate(0.1),
+            "cov": FeatureEliminationCoV(0.8),
+            "kurtosis": FeatureEliminationKurtosis(3),
+            "pearson": FeatureEliminationPearsonCorr(0.7),
+            "vif": FeatureEliminationVIF(8),
+        }
+    )
+
+    eod_feature_matrix = feature_elimination_pipeline.run(eod_feature_matrix, y=None)
+    eod_feature_matrix = FeatureImputer(eod_feature_matrix).run()
+
+    training_features = eod_feature_matrix.copy()
 
     # Save the data
     features_file_name = output_files["training_features"]
