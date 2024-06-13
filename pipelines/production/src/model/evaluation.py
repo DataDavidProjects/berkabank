@@ -10,7 +10,7 @@ from sklearn.metrics import (
 )
 import re
 from dataclasses import dataclass
-from typing import Dict, Union, List
+from typing import Dict, Union, List, Tuple
 from sklearn.base import BaseEstimator
 import pandas as pd
 import numpy as np
@@ -78,7 +78,7 @@ class ModelEvaluationBinaryClassification:
             self.y, self.y_pred
         )
 
-    def run(self) -> None:
+    def run(self) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Run the model evaluation process.
 
         Returns:
@@ -87,4 +87,4 @@ class ModelEvaluationBinaryClassification:
         cm = self.confusion_matrix()
         metrics_df, classification_report = self.report()
 
-        return cm, metrics_df, classification_report
+        return (cm, metrics_df, classification_report)

@@ -44,16 +44,16 @@ def create_model_drivers(
         files=input_files,
     )
 
+    bucket_name, file_name = drives_path.replace("gs://", "").split("/", 1)
+    driver_list = data_loader.load_json_from_bucket(bucket_name, file_name)
+
     # Build model drivers
     drivers_builder = EODBDrivers(
-        eod_balance_preprocessed=data["eod_balance_preprocessed"],
-        column_mapping=column_mapping,
+        eod_balance=data["eod_balance_preprocessed"],
+        drivers=driver_list,
     )
 
     drivers = drivers_builder.run()
-
-    bucket_name, file_name = drives_path.replace("gs://", "").split("/", 1)
-    driver_list = data_loader.load_json_from_bucket(bucket_name, file_name)
 
     # Assert the drivers are in the columns of the dataset
     assert set(driver_list).issubset(set(drivers.columns))

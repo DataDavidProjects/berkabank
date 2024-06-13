@@ -3,6 +3,7 @@ from sklearn.model_selection import RandomizedSearchCV, StratifiedShuffleSplit
 import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.metrics import roc_curve
+import numpy as np
 
 
 @dataclass
@@ -20,7 +21,7 @@ class HyperparameterTuning:
             param_distributions=self.params,
             scoring=self.scoring,
             cv=StratifiedShuffleSplit(
-                n_splits=self.n_splits, test_size=0.1, random_state=42
+                n_splits=self.n_splits, test_size=0.05, random_state=42
             ),
             n_iter=self.n_iter,
             random_state=42,
@@ -44,10 +45,6 @@ class HyperparameterTuning:
             "best_score": grid.best_score_,
         }
         return {"best": best, "report": report}
-
-
-from sklearn.metrics import roc_curve
-import numpy as np
 
 
 @dataclass

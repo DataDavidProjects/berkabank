@@ -292,6 +292,8 @@ class EodBalanceAggregation:
                     self.column_mapping["low_balance_streak"],
                     self.column_mapping["target"],
                     self.column_mapping["district_id"],
+                    "daily_amount_inflow",
+                    "daily_amount_outflow",
                 ],
             ]
         )

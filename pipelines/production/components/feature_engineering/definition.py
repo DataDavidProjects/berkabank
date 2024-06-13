@@ -67,20 +67,6 @@ def feature_engineering_component(
     # EOD Balance Feature Engineering
     eod_balance_training = data["eod_balance_training"].copy()
 
-    eod_balance_training["flow_category"] = (
-        eod_balance_training["daily_amount_flow"]
-        .gt(0)
-        .replace({True: "inflow", False: "outflow"})
-    )
-
-    eod_balance_training["daily_amount_inflow"] = eod_balance_training[
-        "daily_amount_flow"
-    ].clip(lower=0)
-
-    eod_balance_training["daily_amount_outflow"] = (
-        eod_balance_training["daily_amount_flow"].clip(upper=0).abs()
-    )
-
     index = ["account_id"]
     FEATURE_BASED = [
         "daily_amount_inflow",

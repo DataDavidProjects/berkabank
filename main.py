@@ -2,7 +2,7 @@ from utils.pipeline import LazyPipe
 
 # Define the setup for the pipeline
 setup = False
-build = False
+build = True
 # Define the pipelines to run
 pipes = ["production"]
 for pipe in pipes:

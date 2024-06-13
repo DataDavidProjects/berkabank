@@ -118,6 +118,20 @@ class EodBalanceBuilder:
             self.column_mapping["account_id"]
         )[self.column_mapping["daily_amount_flow"]].cumsum()
 
+        eod_balance["flow_category"] = (
+            eod_balance[self.column_mapping["daily_amount_flow"]]
+            .gt(0)
+            .replace({True: "inflow", False: "outflow"})
+        )
+
+        eod_balance["daily_amount_inflow"] = eod_balance[
+            self.column_mapping["daily_amount_flow"]
+        ].clip(lower=0)
+
+        eod_balance["daily_amount_outflow"] = (
+            eod_balance[self.column_mapping["daily_amount_flow"]].clip(upper=0).abs()
+        )
+
         # Rename columns
         eod_balance.rename(
             columns={
@@ -141,6 +155,8 @@ class EodBalanceBuilder:
                 self.column_mapping["end_of_day_balance"],
                 self.column_mapping["daily_amount_flow"],
                 self.column_mapping["account_creation_date"],
+                "daily_amount_inflow",
+                "daily_amount_outflow",
             ]
         ]
         return eod_balance

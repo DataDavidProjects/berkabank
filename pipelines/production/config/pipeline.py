@@ -34,7 +34,7 @@ params = {
     "min_samples_split": [2, 5, 10],
 }
 SCORING = "roc_auc"
-PROMOTION_PERFORMANCE = 0.3  # TODO Change to real value:0.8
+PROMOTION_PERFORMANCE = 0.7
 MACHINE_TYPE = "n1-standard-2"
 FILE_SCORING_NAME = "training_drivers"
 

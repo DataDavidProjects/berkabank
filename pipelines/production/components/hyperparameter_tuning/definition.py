@@ -46,9 +46,14 @@ def hyperparameter_tuning_component(
 ) -> NamedTuple("Outputs", [("auc_validation", float)]):
 
     from sklearn.model_selection import StratifiedShuffleSplit
-    from src.model.hyperparameter import HyperparameterTuning
-    from sklearn.ensemble import RandomForestClassifier
-    from sklearn.metrics import roc_curve, auc
+    from src.model.hyperparameter import (
+        HyperparameterTuning,
+        OptimalCutoffBinaryClassification,
+    )
+    from src.model.evaluation import ModelEvaluationBinaryClassification
+    from src.model.hyperparameter import OptimalCutoffBinaryClassification
+    from src.model.estimators import ClassifierDict
+    from sklearn.metrics import roc_auc_score
     import pandas as pd
     import json
     import numpy as np
@@ -67,7 +72,7 @@ def hyperparameter_tuning_component(
         ),
     }
 
-    # ----------------   Hyperparameter Tuning and Validation ------------------
+    # ----------------   Experiment Models  ------------------
     # Split train and validation
     X = data["training_drivers"].set_index("account_id")
     y = data["core_training"].set_index("account_id")["target"]
@@ -79,10 +84,35 @@ def hyperparameter_tuning_component(
         X_train, X_test = X.iloc[train_index], X.iloc[test_index]
         y_train, y_test = y.iloc[train_index], y.iloc[test_index]
 
-    # Pick the Model Estimator #TODO: serialize in input
-    estimator = RandomForestClassifier()
+    experiments = []
+    for classifier in ClassifierDict:
 
-    # Run HPT
+        # Fit the model
+        model = ClassifierDict[classifier].fit(X_train, y_train)
+
+        # Determine the optimal cutoff
+        y_proba_train = model.predict_proba(X_train)
+        optimal_threshold = OptimalCutoffBinaryClassification(
+            model=model, y_true=y_train, y_proba=y_proba_train
+        ).run()
+
+        # Evaluate the model
+        y_pred_test = model.predict_proba(X_test)
+        cm, metrics_df, classification_report = ModelEvaluationBinaryClassification(
+            model=model, y_proba=y_pred_test, y=y_test, cutoff_score=optimal_threshold
+        ).run()
+        # Append the optimal threshold to row
+        metrics_df["Optimal Threshold"] = optimal_threshold
+        # Save the results
+        experiments.append(metrics_df)
+
+    # Display the results
+    experiment_df = pd.concat(experiments).sort_values("ROC AUC Score", ascending=False)
+
+    # Select Best model based on epxeriment
+    estimator = ClassifierDict[experiment_df.index[0]]
+
+    # ----------------  Hyperparameter Tuning   ------------------
     hp_processor = HyperparameterTuning(
         estimator=estimator,
         params=params,
@@ -95,17 +125,21 @@ def hyperparameter_tuning_component(
     report = hp_processor_output["report"]
     best = hp_processor_output["best"]
 
-    # Assess Validation and Optimal CutOff
+    # ----------------   Evaluate Best Model on Validation  ------------------
+
+    # Best Params for Best Estimator
     best_estimator = estimator.set_params(**best["best_params"])
-    best_estimator.fit(X_train, y_train)
-    y_scores = estimator.predict_proba(X_test)[:, 1]
-    fpr, tpr, thresholds = roc_curve(y_test, y_scores)
-    roc_auc_val = auc(fpr, tpr)
-    optimal_idx = np.argmax(tpr - fpr)
-    optimal_threshold = thresholds[optimal_idx]
-    print(f"TEST ROC AUC: {roc_auc_val}")
-    print(f"Optimal threshold: {optimal_threshold}")
-    best["optimal_threshold"] = optimal_threshold
+    # Optimal CutOff
+    optimal_threshold = OptimalCutoffBinaryClassification(
+        model=model, y_true=y_train, y_proba=y_proba_train
+    ).run()
+
+    # Evaluate the model
+    y_pred_test = model.predict_proba(X_test)
+    cm, metrics_df, classification_report = ModelEvaluationBinaryClassification(
+        model=model, y_proba=y_pred_test, y=y_test, cutoff_score=optimal_threshold
+    ).run()
+
     # --------------------------------------------------------------------------
 
     # Save Data
@@ -121,6 +155,7 @@ def hyperparameter_tuning_component(
         blob.upload_from_file(model_file)
 
     # Create Model Performance Report
+    roc_auc_val = roc_auc_score(y_test, y_pred_test[:, 1])
     model_record = pd.DataFrame(
         [
             {
@@ -128,6 +163,7 @@ def hyperparameter_tuning_component(
                 "roc_auc_validation": roc_auc_val,
                 "optimal_threshold": optimal_threshold,
                 "time_of_training": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "estimator": best_estimator.__class__.__name__,
             }
         ]
     )
@@ -151,10 +187,8 @@ def hyperparameter_tuning_component(
         f"gs://berkabank/production/artifacts/model/{model_name}.joblib"
     )
     hpt_grid_output.metadata["best_params"] = best["best_params"]
-    hpt_grid_output.metadata["best_score"] = best["best_score"]
-    hpt_grid_output.metadata["optimal_threshold"] = best["optimal_threshold"]
+    hpt_grid_output.metadata["optimal_threshold"] = optimal_threshold
     hpt_grid_output.metadata["auc_validation"] = roc_auc_val
-
     hpt_report_output.metadata["column_names"] = report.columns.tolist()
     hpt_report_output.metadata["num_rows"] = len(report)
 
