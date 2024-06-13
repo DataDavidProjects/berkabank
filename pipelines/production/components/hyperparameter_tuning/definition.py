@@ -72,10 +72,15 @@ def hyperparameter_tuning_component(
         ),
     }
 
+    # --------------------  Model Matrix -----------------------
+    training_drivers = data["training_drivers"].set_index("account_id")
+    core_training = data["core_training"].set_index("account_id")
+    model_matrix = training_drivers.merge(core_training, how="inner", on="account_id")
+
     # ----------------   Experiment Models  ------------------
     # Split train and validation
-    X = data["training_drivers"].set_index("account_id")
-    y = data["core_training"].set_index("account_id")["target"]
+    X = model_matrix.drop("target", axis=1)
+    y = model_matrix["target"]
 
     # Balance cv and validation folds
     split = StratifiedShuffleSplit(n_splits=1, test_size=0.05, random_state=42)
@@ -162,7 +167,7 @@ def hyperparameter_tuning_component(
                 "model_name": model_name,
                 "roc_auc_validation": roc_auc_val,
                 "optimal_threshold": optimal_threshold,
-                "time_of_training": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "time_of_training": datetime.now(),
                 "estimator": best_estimator.__class__.__name__,
             }
         ]
