@@ -46,6 +46,7 @@ def batch_prediction_component(
     from google.cloud import bigquery
     import json
     import os
+    from datetime import datetime
 
     # Initialize the AI Platform client
     aiplatform.init(project=project_id, location=region)
@@ -110,11 +111,11 @@ def batch_prediction_component(
     prediction_df = pd.concat(dataframes, ignore_index=True)
     # Refactor the instance column
     prediction_df["account_id"] = prediction_df["instance"].apply(lambda x: x[0])
-    prediction_df["instance"] = prediction_df["instance"].apply(lambda x: x[1:])
     prediction_df = prediction_df.set_index("account_id")
-    prediction_df["probability_of_balance_distress"] = prediction_df[
-        "prediction"
-    ].apply(lambda x: x["probability_positive"])
+    scores_df = prediction_df["prediction"].apply(pd.Series)
+    prediction_df["scoring_datetime"] = datetime.now()
+    prediction_df = prediction_df.drop(columns=["instance", "prediction"])
+    prediction_df = pd.concat([scores_df, prediction_df], axis=1)
 
     # Save the predictions to BigQuery
     table_id = f"{BUCKET_NAME}.predictions"
