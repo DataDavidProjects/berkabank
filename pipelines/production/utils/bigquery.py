@@ -330,7 +330,8 @@ class BigQueryConf:
                         f"Updated table {table.project}.{table.dataset_id}.{table.table_id}"
                     )
                 except GoogleAPICallError as e:
-                    logger.error(f"Failed to update table due to API error: {e}")
+                    # logger.error(f"Failed to update table due to API error: {e}")
+                    pass
                 except Exception as e:
                     logger.error(f"Failed to update table due to unexpected error: {e}")
             except GoogleAPICallError as e:

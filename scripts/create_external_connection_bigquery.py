@@ -44,4 +44,4 @@ for folder in folders:
     bq_conf.create_cloudstorage_connection(uris, dataset_id)
 
 # Delete all tables in the dataset
-bq_conf.delete_tables_dataset(dataset_id)
+# bq_conf.delete_tables_dataset(dataset_id)
