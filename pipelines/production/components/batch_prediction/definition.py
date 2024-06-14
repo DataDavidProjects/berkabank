@@ -92,8 +92,6 @@ def batch_prediction_component(
     batch_prediction_job.wait()
 
     # ------------ SAVE PREDICTIONS TO BIGQUERY ------------
-    # Create a BigQuery client
-    client = bigquery.Client()
     # Create a storage client
     storage_client = storage.Client()
 
@@ -111,12 +109,20 @@ def batch_prediction_component(
     prediction_df = pd.concat(dataframes, ignore_index=True)
     # Refactor the instance column
     prediction_df["account_id"] = prediction_df["instance"].apply(lambda x: x[0])
-    prediction_df = prediction_df.set_index("account_id")
+    prediction_df["account_id"] = prediction_df["account_id"].astype(int)
     scores_df = prediction_df["prediction"].apply(pd.Series)
     prediction_df["scoring_datetime"] = datetime.now()
     prediction_df = prediction_df.drop(columns=["instance", "prediction"])
     prediction_df = pd.concat([scores_df, prediction_df], axis=1)
-
+    prediction_df = prediction_df.loc[
+        :,
+        [
+            "account_id",
+            "probability_negative",
+            "probability_positive",
+            "scoring_datetime",
+        ],
+    ].sort_values("account_id")
     # Save the predictions to BigQuery
     table_id = f"{BUCKET_NAME}.predictions"
     prediction_df.to_gbq(table_id, project_id=PROJECT_ID, if_exists="append")
