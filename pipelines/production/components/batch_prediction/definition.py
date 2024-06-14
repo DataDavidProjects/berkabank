@@ -117,8 +117,8 @@ def batch_prediction_component(
     ].apply(lambda x: x["probability_positive"])
 
     # Save the predictions to BigQuery
-    table_id = f"{PROJECT_ID}.{BUCKET_NAME}.predictions"
-    prediction_df.to_gbq(table_id, client=client, if_exists="append")
+    table_id = f"{BUCKET_NAME}.predictions"
+    prediction_df.to_gbq(table_id, project_id=PROJECT_ID, if_exists="append")
 
     # ------------ METADATA ------------
     batch_prediction_job.metadata = {

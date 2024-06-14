@@ -15,6 +15,7 @@ setup(
         "kfp==2.7.0",
         # Miscellaneous
         "pandas==2.2.2",
+        "pandas-gbq==0.23.1",
         "scikit-learn==1.4.2",
         "imbalanced-learn==0.12.3",
         "numpy==1.26.4",

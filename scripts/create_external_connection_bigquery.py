@@ -1,15 +1,21 @@
 import os
 import sys
 import pandas as pd
+import os
 
 sys.path.append(".")
 
 from pipelines.production.utils.bigquery import BigQueryConf
 
+# Environment variables
+PROJECT_ID = os.environ.get("PROJECT_ID")
+REGION = os.environ.get("REGION")
+BUCKET_NAME = os.environ.get("BUCKET_NAME")
+
 
 # Create a BigQuery configuration
-bucket_name = "berkabank"
-dataset_id = "berkabank"
+bucket_name = BUCKET_NAME
+dataset_id = BUCKET_NAME
 bq_conf = BigQueryConf()
 # bq_conf.create_dataset(dataset_id)
 
