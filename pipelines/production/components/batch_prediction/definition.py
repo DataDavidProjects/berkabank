@@ -27,6 +27,7 @@ BASE_IMAGE = f"{REGION}-docker.pkg.dev/{PROJECT_ID}/{REPOSITORY}/{PIPELINE_NAME}
 def batch_prediction_component(
     project_id: str,
     region: str,
+    pipeline_name: str,
     model_resource_name: str,
     job_display_name: str,
     gcs_source: str,
@@ -40,9 +41,20 @@ def batch_prediction_component(
     batch_prediction_job: dsl.Output[dsl.Artifact],
 ):
     from google.cloud import aiplatform
+    import pandas as pd
+    from google.cloud import storage
+    from google.cloud import bigquery
+    import json
+    import os
 
+    # Initialize the AI Platform client
     aiplatform.init(project=project_id, location=region)
+    PROJECT_ID = project_id
+    REGION = region
+    BUCKET_NAME = os.environ.get("BUCKET_NAME")
+    PIPELINE_NAME = pipeline_name
 
+    # ------------ GET MODEL ------------
     def get_model_by_display_name(display_name, verbose=False):
         client = aiplatform.gapic.ModelServiceClient(
             client_options={"api_endpoint": f"{region}-aiplatform.googleapis.com"}
@@ -59,6 +71,7 @@ def batch_prediction_component(
         else:
             print(f"Model {display_name} not found.")
 
+    # ------------ BATCH PREDICTION ------------
     model_id = get_model_by_display_name(model_resource_name).name
     model_container = aiplatform.Model(model_id)
 
@@ -77,6 +90,37 @@ def batch_prediction_component(
 
     batch_prediction_job.wait()
 
+    # ------------ SAVE PREDICTIONS TO BIGQUERY ------------
+    # Create a BigQuery client
+    client = bigquery.Client()
+    # Create a storage client
+    storage_client = storage.Client()
+
+    # Get the bucket
+    bucket = storage_client.get_bucket(BUCKET_NAME)
+    prefix = f"{PIPELINE_NAME}/data/07_output/"
+    blobs = bucket.list_blobs(prefix=prefix)
+    dataframes = [
+        pd.read_json(f"gs://berkabank/{blob.name}", lines=True)
+        for blob in blobs
+        if "results" in blob.name
+    ]
+
+    # Concatenate the dataframes
+    prediction_df = pd.concat(dataframes, ignore_index=True)
+    # Refactor the instance column
+    prediction_df["account_id"] = prediction_df["instance"].apply(lambda x: x[0])
+    prediction_df["instance"] = prediction_df["instance"].apply(lambda x: x[1:])
+    prediction_df = prediction_df.set_index("account_id")
+    prediction_df["probability_of_balance_distress"] = prediction_df[
+        "prediction"
+    ].apply(lambda x: x["probability_positive"])
+
+    # Save the predictions to BigQuery
+    table_id = f"{PROJECT_ID}.{BUCKET_NAME}.predictions"
+    prediction_df.to_gbq(table_id, client=client, if_exists="append")
+
+    # ------------ METADATA ------------
     batch_prediction_job.metadata = {
         "display_name": batch_prediction_job.display_name,
         "resource_name": batch_prediction_job.resource_name,

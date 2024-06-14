@@ -262,6 +262,7 @@ model_registry_component_args = {
 batch_prediction_component_args = {
     "project_id": PROJECT_ID,
     "region": REGION,
+    "pipeline_name": PIPELINE_NAME,
     "model_resource_name": MODEL_NAME,
     "job_display_name": f"{MODEL_NAME}_batch_prediction_job",
     "gcs_source": f"gs://{BUCKET_NAME}/{PIPELINE_NAME}/data/05_features/{FILE_SCORING_NAME}.csv",

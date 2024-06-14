@@ -178,7 +178,7 @@ def hyperparameter_tuning_component(
         # Append the new record
         pd.concat([model_report, model_record], axis=0, ignore_index=True).sort_values(
             "time_of_training"
-        ).to_csv(f"{input_bucket_path}08_reporting/model_report.csv")
+        ).to_csv(f"{input_bucket_path}08_reporting/model_report.csv", index=False)
 
     # Check if the model is already in the report
     except FileNotFoundError:

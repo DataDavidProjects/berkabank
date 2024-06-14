@@ -82,7 +82,6 @@ def feature_selection_component(
     X = data["training_features"].set_index("account_id")
     drivers = features_processor.run(X=X, y=y)
     # Filter data with drivers
-    # TODO update with actual logic FE
     features_primary = X.loc[:, drivers]
 
     # Save the data

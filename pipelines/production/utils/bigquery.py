@@ -1,12 +1,16 @@
 from dataclasses import dataclass
 import pandas as pd
 from google.cloud import bigquery, storage
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 from google.cloud.bigquery.job import LoadJobConfig, WriteDisposition
 from jinja2 import Template  # pylint: disable=E0401
 import urllib.parse
 import os
+from google.api_core.exceptions import Conflict, NotFound, GoogleAPICallError
+from loguru import logger
+from google.auth import default, exceptions
+from google.oauth2 import service_account
 
 
 def generate_query(input_file: Path, **replacements) -> str:
@@ -80,7 +84,31 @@ class BigQueryConf:
         client (bigquery.Client): The BigQuery client.
     """
 
-    client: bigquery.Client = bigquery.Client()
+    client: Optional[bigquery.Client] = bigquery.Client()
+    pipeline_name: str = "production"
+
+    def __post_init__(self):
+        try:
+            credentials = service_account.Credentials.from_service_account_file(
+                f"pipelines/{self.pipeline_name}/service-account.json"
+            )
+            logger.info(
+                f"Authenticated with Google Cloud SDK. for {self.pipeline_name}"
+            )
+
+            self.client = bigquery.Client(
+                credentials=credentials, project=os.environ.get("PROJECT_ID")
+            )
+        except exceptions.DefaultCredentialsError:
+            logger.error("Please authenticate with Google Cloud SDK.")
+        except exceptions.GoogleAuthError:
+            logger.error("Please authenticate with Google Cloud SDK.")
+        except exceptions.RefreshError:
+            logger.error("Please authenticate with Google Cloud SDK.")
+        except exceptions.TransportError:
+            logger.error("Please authenticate with Google Cloud SDK.")
+        except Exception as e:
+            logger.error(f"Failed to authenticate with Google Cloud SDK: {e}")
 
     def create_dataset(
         self, dataset_id: str, location: str = "europe-west6"
@@ -210,7 +238,22 @@ class BigQueryConf:
             config (TableConfig): The configuration for the table.
         """
         table_ref = self.client.dataset(config.dataset_id).table(config.table_id)
+
         self.client.delete_table(table_ref)
+
+    def delete_tables_dataset(self, dataset_id: str) -> None:
+        """
+        Delete all tables in a dataset in BigQuery.
+
+        Args:
+            dataset_id (str): The ID of the dataset.
+        """
+        dataset_ref = self.client.dataset(dataset_id)
+        tables = self.client.list_tables(dataset_ref)
+        logger.info(f"Deleting tables in dataset {dataset_id}")
+        for table in tables:
+            logger.info(f"Deleting table {table.reference}...")
+            self.client.delete_table(table.reference)
 
     def delete_dataset(self, dataset_id: str) -> None:
         """
@@ -221,44 +264,6 @@ class BigQueryConf:
         """
         dataset_ref = self.client.dataset(dataset_id)
         self.client.delete_dataset(dataset_ref, delete_contents=True, not_found_ok=True)
-
-    def create_cloudstorage_connection(self, uris: List[str], dataset_id: str) -> None:
-        """
-        Create tables in BigQuery based on the given URIs.
-
-        Args:
-            uris (List[str]): The URIs of the tables in Cloud Storage.
-            dataset_id (str): The dataset name.
-
-        Returns:
-            None
-        """
-        for uri in uris:
-            # Parse the file name from the URI
-            parsed_uri = urllib.parse.urlparse(uri)
-            file_name = parsed_uri.path.strip("/").split("/")[-1]
-
-            # Construct the table ID
-            table_id = file_name.rsplit(".", 1)[0]
-
-            # Construct a BigQuery table reference
-            table_ref = self.client.dataset(dataset_id).table(table_id)
-
-            # Create the external config
-            external_config = bigquery.ExternalConfig("CSV")
-            external_config.source_uris = [uri]
-            external_config.autodetect = True
-
-            # Create the table
-            table = bigquery.Table(table_ref)
-            table.external_data_configuration = external_config
-            try:
-                table = self.client.create_table(table)  # API request
-                print(
-                    f"Created table {table.project}.{table.dataset_id}.{table.table_id}"
-                )
-            except Exception as e:
-                print(f"Could not create table: {e}")
 
     def get_uris(self, bucket_name: str, folder: str) -> List[str]:
         """
@@ -276,37 +281,59 @@ class BigQueryConf:
         uris = [f"gs://{bucket_name}/{blob.name}" for blob in blobs]
         return uris
 
+    def create_cloudstorage_connection(self, uris: List[str], dataset_id: str) -> None:
+        """
+        Create tables external connection in BigQuery based on the given URIs.
 
-# # Create a BigQuery configuration
-# bucket_name = "berkabank"
-# dataset_id = "berkabank"
-# bq_conf = BigQueryConf()
-# # bq_conf.create_dataset(dataset_id)
+        Args:
+            uris (List[str]): The URIs of the tables in Cloud Storage.
+            dataset_id (str): The dataset name.
 
-# # Create a Cloud Storage connection
-# folder = "production/data/01_raw"
-# uris = bq_conf.get_uris(bucket_name, folder)
-# bq_conf.create_cloudstorage_connection(uris, dataset_id)
+        Returns:
+            None
+        """
+        for uri in uris:
+            # Parse the file name from the URI
+            parsed_uri = urllib.parse.urlparse(uri)
+            file_name = parsed_uri.path.strip("/").split("/")[-1]
 
+            # Construct the table ID
+            table_id = file_name.rsplit(".", 1)[0]
+            logger.info(f"Parsed table_id:{table_id}")
 
-# # Create a BigQuery Connections
-# bucket_name = "berkabank"
-# dataset_id = "berkabank"
-# bq_conf = BigQueryConf()
-# # bq_conf.create_dataset(dataset_id)
+            # Construct a BigQuery table reference
+            table_ref = self.client.dataset(dataset_id).table(table_id)
 
-# # # Create a Cloud Storage connection
-# folders = [
-#     "production/data/01_raw",
-#     "production/data/02_elaboration",
-#     "production/data/03_primary",
-#     "production/data/04_processing",
-#     "production/data/05_features",
-#     "production/data/06_scoring",
-#     "production/data/07_output",
-#     "production/data/08_reporting",
-# ]
-# # folder = "production/data/01_raw"
-# for folder in folders:
-#     uris = bq_conf.get_uris(bucket_name, folder)
-#     bq_conf.create_cloudstorage_connection(uris, dataset_id)
+            # Create the external config
+            external_config = bigquery.ExternalConfig("CSV")
+            external_config.source_uris = [uri]
+            external_config.autodetect = True
+
+            # Create the table
+            table = bigquery.Table(table_ref)
+            table.external_data_configuration = external_config
+            try:
+                table = self.client.create_table(table)  # API request
+                table = self.client.get_table(table)  # Reload the table metadata
+                logger.info(
+                    f"Created table {table.project}.{table.dataset_id}.{table.table_id}"
+                )
+            except Conflict:
+                # If the table already exists, update its external_data_configuration
+                try:
+                    table = self.client.get_table(table)  # Get the existing table
+                    table.external_data_configuration = external_config
+                    table = self.client.update_table(
+                        table, ["external_data_configuration"]
+                    )  # API request
+                    logger.info(
+                        f"Updated table {table.project}.{table.dataset_id}.{table.table_id}"
+                    )
+                except GoogleAPICallError as e:
+                    logger.error(f"Failed to update table due to API error: {e}")
+                except Exception as e:
+                    logger.error(f"Failed to update table due to unexpected error: {e}")
+            except GoogleAPICallError as e:
+                logger.error(f"Failed to create table due to API error: {e}")
+            except Exception as e:
+                logger.error(f"Failed to create table due to unexpected error: {e}")

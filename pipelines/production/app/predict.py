@@ -41,7 +41,7 @@ class ValidationCheck:
     model_path: str = "./model/model.joblib"
 
     def __post_init__(self):
-        logger.info("Instances shape: \n", self.instances)
+        logger.info(f"Instances shape:{self.instances}")
         self.model = self.load_model()
 
     def load_model(self):
@@ -64,7 +64,7 @@ class ValidationCheck:
         ):
             logger.info("Removing possible index from instances")
             self.instances = [instance[1:] for instance in self.instances]
-            logger.info("New Instances: \n", self.instances)
+            logger.info(f"New Instances:{self.instances}")
 
         return self.instances
 
