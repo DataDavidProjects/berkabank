@@ -57,7 +57,6 @@ folders = [
     "production/data/04_processing",
     "production/data/05_features",
     "production/data/06_scoring",
-    "production/data/07_output",
     "production/data/08_reporting",
 ]
 # folder = "production/data/01_raw"
